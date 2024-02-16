@@ -74,6 +74,37 @@ type Handler struct {
 	sel               ServerEventListener
 }
 
+func (h *Handler) ComRegisterReplica(c *mysql.Conn, replicaHost string, replicaPort uint16, replicaUser string, replicaPassword string) error {
+	panic("not implemented")
+}
+
+func (h *Handler) ComBinlogDumpGTID(c *mysql.Conn, logFile string, logPos uint64, gtidSet mysql.GTIDSet) error {
+	format := mysql.NewMySQL56BinlogFormat()
+	format.ChecksumAlgorithm = mysql.BinlogChecksumAlgOff
+
+	// TODO: This doesn't seem right... dig into the Vitess APIs and see how we're supposed to create this
+	fakeBinlogStream := mysql.NewFakeBinlogStream()
+
+	// Start off with a Format Description event
+	formatDescriptionEvent := mysql.NewFormatDescriptionEvent(format, fakeBinlogStream)
+	err := c.WriteBinlogEvent(formatDescriptionEvent, false)
+	if err != nil {
+		return err
+	}
+
+	// Now send a hardcoded CREATE TABLE query...
+	queryEvent := mysql.NewQueryEvent(format, fakeBinlogStream, mysql.Query{
+		Database: "feb16-replica",
+		SQL:      "CREATE TABLE test01(pk int primary key, name varchar(255))",
+	})
+	err = c.WriteBinlogEvent(queryEvent, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 var _ mysql.Handler = (*Handler)(nil)
 var _ mysql.ExtendedHandler = (*Handler)(nil)
 
