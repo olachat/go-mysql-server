@@ -86,9 +86,6 @@ func (j *JSONKeys) IsNullable() bool {
 
 // Eval implements the sql.Expression interface.
 func (j *JSONKeys) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span(fmt.Sprintf("function.%s", j.FunctionName()))
-	defer span.End()
-
 	doc, err := getJSONDocumentFromRow(ctx, row, j.JSON)
 	if err != nil {
 		return nil, err

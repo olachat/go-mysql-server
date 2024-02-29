@@ -4,37 +4,14 @@ import (
 	"container/heap"
 	"errors"
 	"io"
-	"reflect"
-
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
 func newRangeHeapJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
-	var leftName, rightName string
-	if leftTable, ok := j.Left().(sql.Nameable); ok {
-		leftName = leftTable.Name()
-	} else {
-		leftName = reflect.TypeOf(j.Left()).String()
-	}
-
-	if rightTable, ok := j.Right().(sql.Nameable); ok {
-		rightName = rightTable.Name()
-	} else {
-		rightName = reflect.TypeOf(j.Right()).String()
-	}
-
-	span, ctx := ctx.Span("plan.rangeHeapJoinIter", trace.WithAttributes(
-		attribute.String("left", leftName),
-		attribute.String("right", rightName),
-	))
-
 	l, err := b.Build(ctx, j.Left(), row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
@@ -43,7 +20,7 @@ func newRangeHeapJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinN
 		return nil, errors.New("right side of join must be a range heap")
 	}
 
-	return sql.NewSpanIter(span, &rangeHeapJoinIter{
+	return &rangeHeapJoinIter{
 		parentRow:     row,
 		primary:       l,
 		cond:          j.Filter,
@@ -52,7 +29,7 @@ func newRangeHeapJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinN
 		scopeLen:      j.ScopeLen,
 		b:             b,
 		rangeHeapPlan: rhp,
-	}), nil
+	}, nil
 }
 
 // joinIter is an iterator that iterates over every row in the primary table and performs an index lookup in
@@ -100,7 +77,6 @@ func (iter *rangeHeapJoinIter) loadPrimary(ctx *sql.Context) error {
 func (iter *rangeHeapJoinIter) loadSecondary(ctx *sql.Context) (sql.Row, error) {
 	if iter.secondary == nil {
 		rowIter, err := iter.getActiveRanges(ctx, iter.b, iter.primaryRow)
-
 		if err != nil {
 			return nil, err
 		}

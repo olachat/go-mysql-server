@@ -34,8 +34,10 @@ type JsonLength struct {
 	Path sql.Expression
 }
 
-var _ sql.FunctionExpression = (*JsonLength)(nil)
-var _ sql.CollationCoercible = (*JsonLength)(nil)
+var (
+	_ sql.FunctionExpression = (*JsonLength)(nil)
+	_ sql.CollationCoercible = (*JsonLength)(nil)
+)
 
 // NewJsonLength creates a new JsonLength UDF.
 func NewJsonLength(args ...sql.Expression) (sql.Expression, error) {
@@ -73,9 +75,6 @@ func (*JsonLength) CollationCoercibility(ctx *sql.Context) (collation sql.Collat
 
 // Eval implements the sql.Expression interface.
 func (j *JsonLength) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span("function.JsonLength")
-	defer span.End()
-
 	doc, err := getJSONDocumentFromRow(ctx, row, j.JSON)
 	if err != nil {
 		return nil, err

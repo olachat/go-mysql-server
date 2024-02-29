@@ -94,7 +94,7 @@ func (b *BaseBuilder) buildShowWarnings(ctx *sql.Context, n plan.ShowWarnings, r
 
 func (b *BaseBuilder) buildShowProcessList(ctx *sql.Context, n *plan.ShowProcessList, row sql.Row) (sql.RowIter, error) {
 	processes := ctx.ProcessList.Processes()
-	var rows = make([]sql.Row, len(processes))
+	rows := make([]sql.Row, len(processes))
 
 	for i, proc := range processes {
 		var status []string
@@ -144,7 +144,7 @@ func (b *BaseBuilder) buildShowTableStatus(ctx *sql.Context, n *plan.ShowTableSt
 		return nil, err
 	}
 
-	var rows = make([]sql.Row, len(tables))
+	rows := make([]sql.Row, len(tables))
 
 	for i, tName := range tables {
 		table, _, err := n.Catalog.Table(ctx, n.Database().Name(), tName)
@@ -318,7 +318,7 @@ func (b *BaseBuilder) buildShowCreateProcedure(ctx *sql.Context, n *plan.ShowCre
 }
 
 func (b *BaseBuilder) buildShowCreateDatabase(ctx *sql.Context, n *plan.ShowCreateDatabase, row sql.Row) (sql.RowIter, error) {
-	var name = n.Database().Name()
+	name := n.Database().Name()
 
 	var buf bytes.Buffer
 
@@ -450,10 +450,8 @@ func (b *BaseBuilder) buildShowCreateTrigger(ctx *sql.Context, n *plan.ShowCreat
 }
 
 func (b *BaseBuilder) buildShowColumns(ctx *sql.Context, n *plan.ShowColumns, row sql.Row) (sql.RowIter, error) {
-	span, _ := ctx.Span("plan.ShowColumns")
-
 	schema := n.TargetSchema()
-	var rows = make([]sql.Row, len(schema))
+	rows := make([]sql.Row, len(schema))
 	for i, col := range schema {
 		var row sql.Row
 		var collation interface{}
@@ -461,7 +459,7 @@ func (b *BaseBuilder) buildShowColumns(ctx *sql.Context, n *plan.ShowColumns, ro
 			collation = sql.Collation_Default.String()
 		}
 
-		var null = "NO"
+		null := "NO"
 		if col.Nullable {
 			null = "YES"
 		}
@@ -528,7 +526,7 @@ func (b *BaseBuilder) buildShowColumns(ctx *sql.Context, n *plan.ShowColumns, ro
 		rows[i] = row
 	}
 
-	return sql.NewSpanIter(span, sql.RowsToRowIter(rows...)), nil
+	return sql.RowsToRowIter(rows...), nil
 }
 
 func (b *BaseBuilder) buildShowVariables(ctx *sql.Context, n *plan.ShowVariables, row sql.Row) (sql.RowIter, error) {
@@ -607,7 +605,7 @@ func (b *BaseBuilder) buildDescribe(ctx *sql.Context, n *plan.Describe, row sql.
 
 func (b *BaseBuilder) buildShowDatabases(ctx *sql.Context, n *plan.ShowDatabases, row sql.Row) (sql.RowIter, error) {
 	dbs := n.Catalog.AllDatabases(ctx)
-	var rows = make([]sql.Row, 0, len(dbs))
+	rows := make([]sql.Row, 0, len(dbs))
 	for _, db := range dbs {
 		rows = append(rows, sql.Row{db.Name()})
 	}
@@ -643,7 +641,7 @@ func (b *BaseBuilder) buildShowGrants(ctx *sql.Context, n *plan.ShowGrants, row 
 		return nil, sql.ErrShowGrantsUserDoesNotExist.New(n.For.Name, n.For.Host)
 	}
 
-	//TODO: implement USING, perhaps by creating a new context with the chosen roles set as the active roles
+	// TODO: implement USING, perhaps by creating a new context with the chosen roles set as the active roles
 	var rows []sql.Row
 	userStr := user.UserHostToString("`")
 	privStr := generatePrivStrings("*", "*", userStr, user.PrivilegeSet.ToSlice())

@@ -31,9 +31,6 @@ import (
 // e.g. Window(sum(a) + sum(b) over (partition by a)) becomes
 // project(sum(a) + sum(b) over (partition by a), Window(sum(a), sum(b) over (partition by a))).
 func flattenAggregationExpressions(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("flatten_aggregation_exprs")
-	defer span.End()
-
 	if !n.Resolved() {
 		return n, transform.SameTree, nil
 	}
@@ -87,7 +84,7 @@ func flattenedGroupBy(ctx *sql.Context, scope *plan.Scope, projection, grouping 
 // 1) Passthrough columns from scope input relation.
 // 2) Synthesized columns from in-scope aggregation relation.
 func replaceAggregatesWithGetFieldProjections(_ *sql.Context, scope *plan.Scope, projection []sql.Expression) (projections, aggregations []sql.Expression, identity transform.TreeIdentity, err error) {
-	var newProjection = make([]sql.Expression, len(projection))
+	newProjection := make([]sql.Expression, len(projection))
 	var newAggregates []sql.Expression
 	scopeLen := len(scope.Schema())
 	aggPassthrough := make(map[string]struct{})

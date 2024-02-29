@@ -22,7 +22,6 @@ import (
 
 	"github.com/dolthub/vitess/go/mysql"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/trace"
 
 	sqle "github.com/dolthub/go-mysql-server"
 	"github.com/dolthub/go-mysql-server/server/golden"
@@ -63,14 +62,7 @@ func NewDefaultServer(cfg Config, e *sqle.Engine) (*Server, error) {
 // NewServer creates a server with the given protocol, address, authentication
 // details given a SQLe engine and a session builder.
 func NewServer(cfg Config, e *sqle.Engine, sb SessionBuilder, listener ServerEventListener) (*Server, error) {
-	var tracer trace.Tracer
-	if cfg.Tracer != nil {
-		tracer = cfg.Tracer
-	} else {
-		tracer = sql.NoopTracer
-	}
-
-	sm := NewSessionManager(sb, tracer, e.Analyzer.Catalog.Database, e.MemoryManager, e.ProcessList, cfg.Address)
+	sm := NewSessionManager(sb, e.Analyzer.Catalog.Database, e.MemoryManager, e.ProcessList, cfg.Address)
 	handler := &Handler{
 		e:                 e,
 		sm:                sm,
@@ -80,7 +72,7 @@ func NewServer(cfg Config, e *sqle.Engine, sb SessionBuilder, listener ServerEve
 		encodeLoggedQuery: cfg.EncodeLoggedQuery,
 		sel:               listener,
 	}
-	//handler = NewHandler_(e, sm, cfg.ConnReadTimeout, cfg.DisableClientMultiStatements, cfg.MaxLoggedQueryLen, cfg.EncodeLoggedQuery, listener)
+	// handler = NewHandler_(e, sm, cfg.ConnReadTimeout, cfg.DisableClientMultiStatements, cfg.MaxLoggedQueryLen, cfg.EncodeLoggedQuery, listener)
 	return newServerFromHandler(cfg, e, sm, handler)
 }
 
@@ -93,14 +85,7 @@ func NewValidatingServer(
 	listener ServerEventListener,
 	mySqlConn string,
 ) (*Server, error) {
-	var tracer trace.Tracer
-	if cfg.Tracer != nil {
-		tracer = cfg.Tracer
-	} else {
-		tracer = sql.NoopTracer
-	}
-
-	sm := NewSessionManager(sb, tracer, e.Analyzer.Catalog.Database, e.MemoryManager, e.ProcessList, cfg.Address)
+	sm := NewSessionManager(sb, e.Analyzer.Catalog.Database, e.MemoryManager, e.ProcessList, cfg.Address)
 	h := &Handler{
 		e:                 e,
 		sm:                sm,

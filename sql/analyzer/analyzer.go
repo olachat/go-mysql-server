@@ -22,7 +22,6 @@ import (
 
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/src-d/go-errors.v1"
 
 	"github.com/dolthub/go-mysql-server/sql"
@@ -508,8 +507,6 @@ func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *plan
 const maxBatchRecursion = 100
 
 func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *plan.Scope, batchSelector BatchSelector, ruleSelector RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("analyze")
-
 	if scope.RecursionDepth() > maxBatchRecursion {
 		return n, transform.SameTree, ErrMaxAnalysisIters.New(maxBatchRecursion)
 	}
@@ -534,13 +531,6 @@ func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *plan
 			a.PopDebugContext()
 		}
 	}
-
-	defer func() {
-		if n != nil {
-			span.SetAttributes(attribute.Bool("IsResolved", n.Resolved()))
-		}
-		span.End()
-	}()
 
 	return n, allSame, err
 }

@@ -35,8 +35,10 @@ type Case struct {
 	Else     sql.Expression
 }
 
-var _ sql.Expression = (*Case)(nil)
-var _ sql.CollationCoercible = (*Case)(nil)
+var (
+	_ sql.Expression         = (*Case)(nil)
+	_ sql.CollationCoercible = (*Case)(nil)
+)
 
 // NewCase returns an new Case expression.
 func NewCase(expr sql.Expression, branches []CaseBranch, elseExpr sql.Expression) *Case {
@@ -157,9 +159,6 @@ func (c *Case) Children() []sql.Expression {
 
 // Eval implements the sql.Expression interface.
 func (c *Case) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span("expression.Case")
-	defer span.End()
-
 	t := c.Type()
 
 	for _, b := range c.Branches {
@@ -208,7 +207,7 @@ func (c *Case) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 
 // WithChildren implements the Expression interface.
 func (c *Case) WithChildren(children ...sql.Expression) (sql.Expression, error) {
-	var expected = len(c.Branches) * 2
+	expected := len(c.Branches) * 2
 	if c.Expr != nil {
 		expected++
 	}

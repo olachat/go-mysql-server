@@ -50,7 +50,6 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/transform"
 	"github.com/dolthub/go-mysql-server/sql/types"
 	"github.com/dolthub/go-mysql-server/sql/variables"
-	"github.com/dolthub/go-mysql-server/test"
 )
 
 // TestQueries tests a variety of queries against databases and tables provided by the given harness.
@@ -442,7 +441,6 @@ func TestQueryPlans(t *testing.T, harness Harness, planTests []queries.QueryPlan
 				})
 			}
 		})
-
 	}
 }
 
@@ -510,7 +508,6 @@ func TestIndexQueryPlans(t *testing.T, harness Harness) {
 		TestQueryWithContext(t, ctx, e, harness, "SHOW INDEXES FROM otherdb.a", []sql.Row{
 			{"a", 1, "idx1", 1, "y", nil, 0, nil, nil, "YES", "BTREE", "", "", "YES", nil},
 		}, nil, nil)
-
 	})
 }
 
@@ -729,7 +726,7 @@ func TestReadOnly(t *testing.T, harness Harness, testStoredProcedures bool) {
 	e.ReadOnly.Store(true)
 	defer e.Close()
 
-	var workingQueries = []string{
+	workingQueries := []string{
 		`SELECT i FROM mytable`,
 		`EXPLAIN INSERT INTO mytable (i, s) VALUES (42, 'yolo')`,
 	}
@@ -1109,7 +1106,7 @@ func TestSelectIntoFile(t *testing.T, harness Harness) {
 		subErr = os.RemoveAll(subdir)
 		require.NoError(t, subErr)
 	}
-	err = os.Mkdir(subdir, 0777)
+	err = os.Mkdir(subdir, 0o777)
 	require.NoError(t, err)
 	defer os.RemoveAll(subdir)
 
@@ -1556,7 +1553,6 @@ func TestConvert(t *testing.T, harness Harness) {
 			TestQuery(t, harness, query, []sql.Row{{tt.ExpCnt}}, nil, nil)
 		})
 	}
-
 }
 
 func TestConvertPrepared(t *testing.T, harness Harness) {
@@ -2307,21 +2303,31 @@ func TestStoredProcedures(t *testing.T, harness Harness) {
 		TestQueryWithContext(t, ctx, e, harness, "CREATE PROCEDURE mydb.p2() SELECT 6", []sql.Row{{types.OkResult{}}}, nil, nil)
 
 		TestQueryWithContext(t, ctx, e, harness, "SHOW PROCEDURE STATUS", []sql.Row{
-			{"mydb", "p1", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
-				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin"},
-			{"mydb", "p2", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
-				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin"},
-			{"mydb", "p5", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
-				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin"},
+			{
+				"mydb", "p1", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
+				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin",
+			},
+			{
+				"mydb", "p2", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
+				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin",
+			},
+			{
+				"mydb", "p5", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
+				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin",
+			},
 		}, nil, nil)
 
 		TestQueryWithContext(t, ctx, e, harness, "DROP PROCEDURE mydb.p1", []sql.Row{{types.OkResult{}}}, nil, nil)
 
 		TestQueryWithContext(t, ctx, e, harness, "SHOW PROCEDURE STATUS", []sql.Row{
-			{"mydb", "p2", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
-				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin"},
-			{"mydb", "p5", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
-				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin"},
+			{
+				"mydb", "p2", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
+				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin",
+			},
+			{
+				"mydb", "p5", "PROCEDURE", "", time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(),
+				"DEFINER", "", "utf8mb4", "utf8mb4_0900_bin", "utf8mb4_0900_bin",
+			},
 		}, nil, nil)
 	})
 }
@@ -2581,13 +2587,17 @@ func TestCreateTable(t *testing.T, harness Harness) {
 		RunQueryWithContext(t, e, harness, ctx, "CREATE TABLE test2 like test")
 
 		RunQueryWithContext(t, e, harness, ctx, "ALTER TABLE test2 modify pk int")
-		TestQueryWithContext(t, ctx, e, harness, "DESCRIBE test2", []sql.Row{{"pk", "int", "NO", "PRI", "NULL", ""},
-			{"val", "int", "YES", "", "NULL", ""}}, nil, nil)
+		TestQueryWithContext(t, ctx, e, harness, "DESCRIBE test2", []sql.Row{
+			{"pk", "int", "NO", "PRI", "NULL", ""},
+			{"val", "int", "YES", "", "NULL", ""},
+		}, nil, nil)
 
 		RunQueryWithContext(t, e, harness, ctx, "ALTER TABLE test2 drop primary key")
 
-		TestQueryWithContext(t, ctx, e, harness, "DESCRIBE test2", []sql.Row{{"pk", "int", "NO", "", "NULL", ""},
-			{"val", "int", "YES", "", "NULL", ""}}, nil, nil)
+		TestQueryWithContext(t, ctx, e, harness, "DESCRIBE test2", []sql.Row{
+			{"pk", "int", "NO", "", "NULL", ""},
+			{"val", "int", "YES", "", "NULL", ""},
+		}, nil, nil)
 	})
 
 	for _, tt := range queries.BrokenCreateTableQueries {
@@ -3740,7 +3750,7 @@ func TestNamedWindows(t *testing.T, harness Harness) {
 	AssertErr(t, e, harness, "SELECT sum(y) over (w3) FROM a WINDOW w1 as (w2), w2 as (w3), w3 as (w1) order by x", sql.ErrCircularWindowInheritance)
 
 	// TODO parser needs to differentiate between window replacement and copying -- window frames can't be copied
-	//AssertErr(t, e, harness, "SELECT sum(y) over w FROM a WINDOW (w) as (partition by z order by x rows unbounded preceding) order by x", sql.ErrInvalidWindowInheritance)
+	// AssertErr(t, e, harness, "SELECT sum(y) over w FROM a WINDOW (w) as (partition by z order by x rows unbounded preceding) order by x", sql.ErrInvalidWindowInheritance)
 }
 
 func TestNaturalJoin(t *testing.T, harness Harness) {
@@ -4053,7 +4063,7 @@ func TestVariableErrors(t *testing.T, harness Harness) {
 }
 
 func TestWarnings(t *testing.T, harness Harness) {
-	var queries = []queries.QueryTest{
+	queries := []queries.QueryTest{
 		{
 			Query: `
 			SHOW WARNINGS
@@ -4177,7 +4187,7 @@ func TestUse(t *testing.T, harness Harness) {
 	err := CreateNewConnectionForServerEngine(ctx, e)
 	require.NoError(err)
 
-	var script = queries.ScriptTest{
+	script := queries.ScriptTest{
 		Name: "ALTER TABLE, ALTER COLUMN SET , DROP DEFAULT",
 		SetUpScript: []string{
 			"CREATE TABLE test (pk BIGINT PRIMARY KEY, v1 BIGINT NOT NULL default 88);",
@@ -4415,52 +4425,6 @@ func TestSessionSelectLimit(t *testing.T, harness Harness) {
 	}
 }
 
-func TestTracing(t *testing.T, harness Harness) {
-	harness.Setup(setup.MydbData, setup.MytableData)
-	e := mustNewEngine(t, harness)
-	defer e.Close()
-
-	ctx := NewContext(harness)
-	tracer := new(test.MemTracer)
-
-	sql.WithTracer(tracer)(ctx)
-
-	_, iter, err := e.Query(ctx, `SELECT DISTINCT i
-		FROM mytable
-		WHERE s = 'first row'
-		ORDER BY i DESC
-		LIMIT 1`)
-	require.NoError(t, err)
-
-	rows, err := sql.RowIterToRows(ctx, iter)
-	require.Len(t, rows, 1)
-	require.NoError(t, err)
-
-	spans := tracer.Spans
-	// TODO restore TopN
-	var expectedSpans = []string{
-		"plan.Limit",
-		"plan.Distinct",
-		"plan.Project",
-		"plan.Sort",
-		"plan.Filter",
-		"plan.IndexedTableAccess",
-	}
-
-	var spanOperations []string
-	for _, s := range spans {
-		// only check the ones inside the execution tree
-		if strings.HasPrefix(s, "plan.") ||
-			strings.HasPrefix(s, "expression.") ||
-			strings.HasPrefix(s, "function.") ||
-			strings.HasPrefix(s, "aggregation.") {
-			spanOperations = append(spanOperations, s)
-		}
-	}
-
-	require.Equal(t, expectedSpans, spanOperations)
-}
-
 func TestCurrentTimestamp(t *testing.T, harness Harness) {
 	harness.Setup(setup.MydbData)
 	e := mustNewEngine(t, harness)
@@ -4588,7 +4552,7 @@ func TestOnUpdateExprScripts(t *testing.T, harness Harness) {
 						} else if assertion.ExpectedErrStr != "" {
 							AssertErr(t, e, harness, assertion.Query, nil, assertion.ExpectedErrStr)
 						} else {
-							var expected = assertion.Expected
+							expected := assertion.Expected
 							if IsServerEngine(e) && assertion.SkipResultCheckOnServerEngine {
 								// TODO: remove this check in the future
 								expected = nil
@@ -4815,7 +4779,8 @@ func TestPrepared(t *testing.T, harness Harness) {
 		{
 			Query: "SELECT i, 1 AS foo, 2 AS bar FROM (SELECT i FROM mYtABLE WHERE i = ?) AS a ORDER BY foo, i",
 			Expected: []sql.Row{
-				{2, 1, 2}},
+				{2, 1, 2},
+			},
 			Bindings: map[string]*query.BindVariable{
 				"v1": sqltypes.Int64BindVariable(int64(2)),
 			},
@@ -4823,7 +4788,8 @@ func TestPrepared(t *testing.T, harness Harness) {
 		{
 			Query: "SELECT i, 1 AS foo, 2 AS bar FROM (SELECT i FROM mYtABLE WHERE i = ?) AS a HAVING bar = ? ORDER BY foo, i",
 			Expected: []sql.Row{
-				{2, 1, 2}},
+				{2, 1, 2},
+			},
 			Bindings: map[string]*query.BindVariable{
 				"v1": sqltypes.Int64BindVariable(int64(2)),
 				"v2": sqltypes.Int64BindVariable(int64(2)),
@@ -5356,7 +5322,7 @@ type memoryPersister struct {
 var _ mysql_db.MySQLDbPersistence = &memoryPersister{}
 
 func (p *memoryPersister) Persist(ctx *sql.Context, data []byte) error {
-	//erase everything from users and roles
+	// erase everything from users and roles
 	p.users = make([]*mysql_db.User, 0)
 	p.roles = make([]*mysql_db.RoleEdge, 0)
 

@@ -41,9 +41,11 @@ type RegexpLike struct {
 	compileErr  error
 }
 
-var _ sql.FunctionExpression = (*RegexpLike)(nil)
-var _ sql.CollationCoercible = (*RegexpLike)(nil)
-var _ sql.Closer = (*RegexpLike)(nil)
+var (
+	_ sql.FunctionExpression = (*RegexpLike)(nil)
+	_ sql.CollationCoercible = (*RegexpLike)(nil)
+	_ sql.Closer             = (*RegexpLike)(nil)
+)
 
 // NewRegexpLike creates a new RegexpLike expression.
 func NewRegexpLike(args ...sql.Expression) (sql.Expression, error) {
@@ -91,7 +93,7 @@ func (r *RegexpLike) IsNullable() bool { return true }
 
 // Children implements the sql.Expression interface.
 func (r *RegexpLike) Children() []sql.Expression {
-	var result = []sql.Expression{r.Text, r.Pattern}
+	result := []sql.Expression{r.Text, r.Pattern}
 	if r.Flags != nil {
 		result = append(result, r.Flags)
 	}
@@ -131,9 +133,6 @@ func (r *RegexpLike) compile(ctx *sql.Context) {
 
 // Eval implements the sql.Expression interface.
 func (r *RegexpLike) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span("function.RegexpLike")
-	defer span.End()
-
 	cached := r.cachedVal.Load()
 	if cached != nil {
 		return cached, nil

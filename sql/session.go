@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -42,9 +40,6 @@ const (
 	characterSetResultsSysVarName    = "character_set_results"
 	collationConnectionSysVarName    = "collation_connection"
 )
-
-var NoopTracer = trace.NewNoopTracerProvider().Tracer("github.com/dolthub/go-mysql-server/sql")
-var _, noopSpan = NoopTracer.Start(context.Background(), "noop")
 
 // Client holds session user information.
 type Client struct {
@@ -217,8 +212,6 @@ type Context struct {
 	pid         uint64
 	query       string
 	queryTime   time.Time
-	tracer      trace.Tracer
-	rootSpan    trace.Span
 	Version     AnalyzerVersion
 }
 
@@ -229,13 +222,6 @@ type ContextOption func(*Context)
 func WithSession(s Session) ContextOption {
 	return func(ctx *Context) {
 		ctx.Session = s
-	}
-}
-
-// WithTracer adds the given tracer to the context.
-func WithTracer(t trace.Tracer) ContextOption {
-	return func(ctx *Context) {
-		ctx.tracer = t
 	}
 }
 
@@ -260,13 +246,6 @@ func WithMemoryManager(m *MemoryManager) ContextOption {
 	}
 }
 
-// WithRootSpan sets the root span of the context.
-func WithRootSpan(s trace.Span) ContextOption {
-	return func(ctx *Context) {
-		ctx.rootSpan = s
-	}
-}
-
 func WithProcessList(p ProcessList) ContextOption {
 	return func(ctx *Context) {
 		ctx.ProcessList = p
@@ -280,8 +259,10 @@ func WithServices(services Services) ContextOption {
 	}
 }
 
-var ctxNowFunc = time.Now
-var ctxNowFuncMutex = &sync.Mutex{}
+var (
+	ctxNowFunc      = time.Now
+	ctxNowFuncMutex = &sync.Mutex{}
+)
 
 func RunWithNowFunc(nowFunc func() time.Time, fn func() error) error {
 	oldNowFunc := swapNowFunc(nowFunc)
@@ -321,7 +302,6 @@ func NewContext(
 		Context:   ctx,
 		Session:   nil,
 		queryTime: ctxNowFunc(),
-		tracer:    NoopTracer,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -392,25 +372,6 @@ func (c *Context) SetQueryTime(t time.Time) {
 	c.queryTime = t
 }
 
-// Span creates a new tracing span with the given context.
-// It will return the span and a new context that should be passed to all
-// children of this span.
-func (c *Context) Span(
-	opName string,
-	opts ...trace.SpanStartOption,
-) (trace.Span, *Context) {
-	if c == nil {
-		return noopSpan, nil
-	}
-
-	if c.tracer == nil || c.tracer == NoopTracer {
-		return noopSpan, c
-	}
-
-	ctx, span := c.tracer.Start(c.Context, opName, opts...)
-	return span, c.WithContext(ctx)
-}
-
 // NewSubContext creates a new sub-context with the current context as parent. Returns the resulting context.CancelFunc
 // as well as the new *sql.Context, which be used to cancel the new context before the parent is finished.
 func (c *Context) NewSubContext() (*Context, context.CancelFunc) {
@@ -432,14 +393,6 @@ func (c *Context) WithContext(ctx context.Context) *Context {
 	nc := *c
 	nc.Context = ctx
 	return &nc
-}
-
-// RootSpan returns the root span, if any.
-func (c *Context) RootSpan() trace.Span {
-	if c == nil {
-		return noopSpan
-	}
-	return c.rootSpan
 }
 
 // Error adds an error as warning to the session.
@@ -523,107 +476,6 @@ func (c *Context) NewCtxWithClient(client Client) *Context {
 type Services struct {
 	KillConnection func(connID uint32) error
 	LoadInfile     func(filename string) (io.ReadCloser, error)
-}
-
-// NewSpanIter creates a RowIter executed in the given span.
-// Currently inactive, returns the iter returned unaltered.
-func NewSpanIter(span trace.Span, iter RowIter) RowIter {
-	// In the default, non traced case, we should not bother with
-	// collecting the timings below.
-	if !span.IsRecording() {
-		return iter
-	} else {
-		return &spanIter{
-			span: span,
-			iter: iter,
-		}
-	}
-}
-
-type spanIter struct {
-	span  trace.Span
-	iter  RowIter
-	count int
-	max   time.Duration
-	min   time.Duration
-	total time.Duration
-	done  bool
-}
-
-var _ RowIter = (*spanIter)(nil)
-
-func (i *spanIter) updateTimings(start time.Time) {
-	elapsed := time.Since(start)
-	if i.max < elapsed {
-		i.max = elapsed
-	}
-
-	if i.min > elapsed || i.min == 0 {
-		i.min = elapsed
-	}
-
-	i.total += elapsed
-}
-
-func (i *spanIter) Next(ctx *Context) (Row, error) {
-	start := time.Now()
-
-	row, err := i.iter.Next(ctx)
-	if err == io.EOF {
-		i.finish()
-		return nil, err
-	}
-
-	if err != nil {
-		i.finishWithError(err)
-		return nil, err
-	}
-
-	i.count++
-	i.updateTimings(start)
-	return row, nil
-}
-
-func (i *spanIter) finish() {
-	var avg time.Duration
-	if i.count > 0 {
-		avg = i.total / time.Duration(i.count)
-	}
-
-	i.span.AddEvent("finish", trace.WithAttributes(
-		attribute.Int("rows", i.count),
-		attribute.Stringer("total_time", i.total),
-		attribute.Stringer("max_time", i.max),
-		attribute.Stringer("min_time", i.min),
-		attribute.Stringer("avg_time", avg),
-	))
-	i.span.End()
-	i.done = true
-}
-
-func (i *spanIter) finishWithError(err error) {
-	var avg time.Duration
-	if i.count > 0 {
-		avg = i.total / time.Duration(i.count)
-	}
-
-	i.span.RecordError(err)
-	i.span.AddEvent("finish", trace.WithAttributes(
-		attribute.Int("rows", i.count),
-		attribute.Stringer("total_time", i.total),
-		attribute.Stringer("max_time", i.max),
-		attribute.Stringer("min_time", i.min),
-		attribute.Stringer("avg_time", avg),
-	))
-	i.span.End()
-	i.done = true
-}
-
-func (i *spanIter) Close(ctx *Context) error {
-	if !i.done {
-		i.finish()
-	}
-	return i.iter.Close(ctx)
 }
 
 func defaultLastQueryInfo() map[string]int64 {

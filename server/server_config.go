@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/dolthub/vitess/go/mysql"
-	"go.opentelemetry.io/otel/trace"
 
 	gms "github.com/dolthub/go-mysql-server"
 	sqle "github.com/dolthub/go-mysql-server"
@@ -47,9 +46,6 @@ type Config struct {
 	// Custom listener for the mysql server. Use this if you don't want ports or unix sockets to be opened automatically.
 	// This can be useful in testing by using a pure go net.Conn implementation.
 	Listener net.Listener
-	// Tracer to use in the server. By default, a noop tracer will be used if
-	// no tracer is provided.
-	Tracer trace.Tracer
 	// Version string to advertise in running server
 	Version string
 	// ConnReadTimeout is the server's read timeout

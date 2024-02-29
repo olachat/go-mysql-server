@@ -25,9 +25,6 @@ import (
 // Subqueries are processed from the top down and a new scope level is created for each subquery when it is sent
 // to be analyzed.
 func resolveSubqueries(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("resolve_subqueries")
-	defer span.End()
-
 	return resolveSubqueriesHelper(ctx, a, n, scope, sel, false)
 }
 
@@ -77,9 +74,6 @@ func finalizeSubqueryLateral(ctx *sql.Context, a *Analyzer, n sql.Node, scope *p
 //     rule set on subquery aliases.
 //   - finalizeSubqueries runs a full analysis pass on subquery expressions and runs all rule batches except for OnceBeforeDefault.
 func finalizeSubqueries(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("finalize_subqueries")
-	defer span.End()
-
 	node, same1, err := finalizeSubqueriesHelper(ctx, a, n, scope, sel)
 	if err != nil {
 		return nil, transform.SameTree, err
@@ -216,8 +210,6 @@ func resolveSubqueriesHelper(ctx *sql.Context, a *Analyzer, node sql.Node, scope
 // create this nested structure; it occurs as the execution plan is built and altered during analysis, for
 // example with CTEs that get plugged into the execution plan as the analyzer processes it.
 func flattenTableAliases(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("flatten_table_aliases")
-	defer span.End()
 	return transform.Node(n, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 		switch n := n.(type) {
 		case *plan.TableAlias:
@@ -263,7 +255,7 @@ func analyzeSubqueryExpression(ctx *sql.Context, a *Analyzer, n sql.Node, sq *pl
 		return nil, transform.SameTree, err
 	}
 
-	//todo(max): Infinite cycles with subqueries, unions, ctes, catalog.
+	// todo(max): Infinite cycles with subqueries, unions, ctes, catalog.
 	// we squashed most negative errors, where a rule fails to report a plan change
 	// to the expense of positive errors, where a rule reports a change when the plan
 	// is the same before/after.

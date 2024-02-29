@@ -31,8 +31,6 @@ import (
 	"github.com/dolthub/vitess/go/vt/sqlparser"
 	"github.com/go-kit/kit/metrics/discard"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/src-d/go-errors.v1"
 
 	sqle "github.com/dolthub/go-mysql-server"
@@ -74,8 +72,10 @@ type Handler struct {
 	sel               ServerEventListener
 }
 
-var _ mysql.Handler = (*Handler)(nil)
-var _ mysql.ExtendedHandler = (*Handler)(nil)
+var (
+	_ mysql.Handler         = (*Handler)(nil)
+	_ mysql.ExtendedHandler = (*Handler)(nil)
+)
 
 // NewConnection reports that a new connection has been established.
 func (h *Handler) NewConnection(c *mysql.Conn) {
@@ -399,7 +399,6 @@ func (h *Handler) doQuery(
 				}
 			}
 		}
-
 	})
 
 	pollCtx, cancelF := ctx.NewSubContext()
@@ -587,7 +586,6 @@ func (h *Handler) errorWrappedComExec(
 	}
 
 	_, err := h.doQuery(c, query, nil, analyzedPlan, MultiStmtModeOff, h.executeBoundPlan, nil, callback)
-
 	if err != nil {
 		err = sql.CastSQLError(err)
 	}
@@ -797,8 +795,6 @@ var (
 )
 
 func observeQuery(ctx *sql.Context, query string) func(err error) {
-	span, ctx := ctx.Span("query", trace.WithAttributes(attribute.String("query", query)))
-
 	t := time.Now()
 	return func(err error) {
 		if err != nil {
@@ -807,8 +803,6 @@ func observeQuery(ctx *sql.Context, query string) func(err error) {
 			QueryCounter.With("query", query).Add(1)
 			QueryHistogram.With("query", query, "duration", "seconds").Observe(time.Since(t).Seconds())
 		}
-
-		span.End()
 	}
 }
 

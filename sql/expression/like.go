@@ -40,8 +40,10 @@ type Like struct {
 	cached bool
 }
 
-var _ sql.Expression = (*Like)(nil)
-var _ sql.CollationCoercible = (*Like)(nil)
+var (
+	_ sql.Expression         = (*Like)(nil)
+	_ sql.CollationCoercible = (*Like)(nil)
+)
 
 type likeMatcherErrTuple struct {
 	matcher LikeMatcher
@@ -50,7 +52,7 @@ type likeMatcherErrTuple struct {
 
 // NewLike creates a new LIKE expression.
 func NewLike(left, right, escape sql.Expression) sql.Expression {
-	var cached = true
+	cached := true
 	sql.Inspect(right, func(e sql.Expression) bool {
 		if _, ok := e.(*GetField); ok {
 			cached = false
@@ -79,9 +81,6 @@ func (l *Like) CollationCoercibility(ctx *sql.Context) (collation sql.CollationI
 
 // Eval implements the sql.Expression interface.
 func (l *Like) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span("expression.Like")
-	defer span.End()
-
 	left, err := l.LeftChild.Eval(ctx, row)
 	if err != nil || left == nil {
 		return nil, err

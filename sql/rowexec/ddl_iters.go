@@ -25,8 +25,6 @@ import (
 	"github.com/dolthub/vitess/go/mysql"
 	"github.com/dolthub/vitess/go/sqltypes"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
@@ -69,7 +67,6 @@ func (l loadDataIter) Next(ctx *sql.Context) (returnRow sql.Row, returnErr error
 
 		line := l.scanner.Text()
 		exprs, err = l.parseFields(ctx, line)
-
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +138,7 @@ func (l loadDataIter) parseFields(ctx *sql.Context, line string) ([]sql.Expressi
 		}
 	}
 
-	//Step 4: Handle the ESCAPED BY parameter.
+	// Step 4: Handle the ESCAPED BY parameter.
 	if l.fieldsEscapedBy != "" {
 		for i, field := range fields {
 			if field == "\\N" {
@@ -367,7 +364,7 @@ func handleFkColumnRename(ctx *sql.Context, fkTable sql.ForeignKeyTable, db sql.
 	if len(parentFks) > 0 {
 		dbName := strings.ToLower(db.Name())
 		for _, parentFk := range parentFks {
-			//TODO: add support for multi db foreign keys
+			// TODO: add support for multi db foreign keys
 			if dbName != strings.ToLower(parentFk.ParentDatabase) {
 				return fmt.Errorf("renaming columns involved in foreign keys referencing a different database" +
 					" is not yet supported")
@@ -674,23 +671,12 @@ func createIndex(
 	done chan<- struct{},
 	ready <-chan struct{},
 ) {
-	span, ctx := ctx.Span("plan.createIndex",
-		trace.WithAttributes(
-			attribute.String("index", index.ID()),
-			attribute.String("table", index.Table()),
-			attribute.String("driver", index.Driver()),
-		),
-	)
-	defer span.End()
-
 	l := log.WithField("id", index.ID())
 
 	err := driver.Save(ctx, index, newLoggingPartitionKeyValueIter(l, iter))
 	close(done)
 
 	if err != nil {
-		span.RecordError(err)
-
 		ctx.Error(0, "unable to save the index: %s", err)
 		logrus.WithField("err", err).Error("unable to save the index")
 
@@ -798,7 +784,6 @@ func (i *loggingPartitionKeyValueIter) Close(ctx *sql.Context) error {
 }
 
 type loggingKeyValueIter struct {
-	span  trace.Span
 	log   *logrus.Entry
 	iter  sql.IndexKeyValueIter
 	rows  *uint64
@@ -819,10 +804,6 @@ func newLoggingKeyValueIter(
 }
 
 func (i *loggingKeyValueIter) Next(ctx *sql.Context) ([]interface{}, []byte, error) {
-	if i.span == nil {
-		i.span, ctx = ctx.Span("plan.createIndex.iterator", trace.WithAttributes(attribute.Int64("start", int64(*i.rows))))
-	}
-
 	(*i.rows)++
 	if *i.rows%sql.IndexBatchSize == 0 {
 		duration := time.Since(i.start)
@@ -832,22 +813,10 @@ func (i *loggingKeyValueIter) Next(ctx *sql.Context) ([]interface{}, []byte, err
 			"rows":     *i.rows,
 		}).Debugf("still creating index")
 
-		if i.span != nil {
-			i.span.SetAttributes(attribute.Stringer("duration", duration))
-			i.span.End()
-			i.span = nil
-		}
-
 		i.start = time.Now()
 	}
 
 	val, loc, err := i.iter.Next(ctx)
-	if err != nil {
-		i.span.RecordError(err)
-		i.span.End()
-		i.span = nil
-	}
-
 	return val, loc, err
 }
 
@@ -952,8 +921,8 @@ func GetColumnsAndPrepareExpressions(
 	exprs []sql.Expression,
 ) ([]string, []sql.Expression, error) {
 	var columns []string
-	var seen = make(map[string]int)
-	var expressions = make([]sql.Expression, len(exprs))
+	seen := make(map[string]int)
+	expressions := make([]sql.Expression, len(exprs))
 
 	for i, e := range exprs {
 		ex, _, err := transform.Expr(e, func(e sql.Expression) (sql.Expression, transform.TreeIdentity, error) {
@@ -973,7 +942,6 @@ func GetColumnsAndPrepareExpressions(
 
 			return expression.NewGetFieldWithTable(idx, int(gf.TableId()), gf.Type(), gf.Database(), gf.Table(), gf.Name(), gf.IsNullable()), transform.NewTree, nil
 		})
-
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1506,7 +1474,7 @@ func (c *createProcedureIter) Next(ctx *sql.Context) (sql.Row, error) {
 	if !run {
 		return nil, io.EOF
 	}
-	//TODO: if "automatic_sp_privileges" is true then the creator automatically gets EXECUTE and ALTER ROUTINE on this procedure
+	// TODO: if "automatic_sp_privileges" is true then the creator automatically gets EXECUTE and ALTER ROUTINE on this procedure
 	pdb, ok := c.db.(sql.StoredProcedureDatabase)
 	if !ok {
 		return nil, sql.ErrStoredProceduresNotSupported.New(c.db.Name())

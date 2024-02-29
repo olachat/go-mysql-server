@@ -26,9 +26,6 @@ import (
 // loadTriggers loads any triggers that are required for a plan node to operate properly (except for nodes dealing with
 // trigger execution).
 func loadTriggers(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("loadTriggers")
-	defer span.End()
-
 	return transform.Node(n, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 		switch node := n.(type) {
 		case *plan.ShowTriggers:

@@ -26,8 +26,6 @@ import (
 
 	"github.com/dolthub/jsonpath"
 	"github.com/shopspring/decimal"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
@@ -37,10 +35,8 @@ import (
 )
 
 func (b *BaseBuilder) buildTopN(ctx *sql.Context, n *plan.TopN, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.TopN")
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
@@ -48,7 +44,7 @@ func (b *BaseBuilder) buildTopN(ctx *sql.Context, n *plan.TopN, row sql.Row) (sq
 	if err != nil {
 		return nil, err
 	}
-	return sql.NewSpanIter(span, newTopRowsIter(n.Fields, limit, n.CalcFoundRows, i, len(n.Child.Schema()))), nil
+	return newTopRowsIter(n.Fields, limit, n.CalcFoundRows, i, len(n.Child.Schema())), nil
 }
 
 func (b *BaseBuilder) buildValueDerivedTable(ctx *sql.Context, n *plan.ValueDerivedTable, row sql.Row) (sql.RowIter, error) {
@@ -122,20 +118,16 @@ func (b *BaseBuilder) buildWindow(ctx *sql.Context, n *plan.Window, row sql.Row)
 }
 
 func (b *BaseBuilder) buildOffset(ctx *sql.Context, n *plan.Offset, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Offset", trace.WithAttributes(attribute.Stringer("offset", n.Offset)))
-
 	offset, err := getInt64Value(ctx, n.Offset)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
 	it, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
-	return sql.NewSpanIter(span, &offsetIter{offset, it}), nil
+	return &offsetIter{offset, it}, nil
 }
 
 func (b *BaseBuilder) buildJSONTableCols(ctx *sql.Context, jtCols []plan.JSONTableCol, row sql.Row) ([]*jsonTableCol, error) {
@@ -254,22 +246,12 @@ func (b *BaseBuilder) buildHashLookup(ctx *sql.Context, n *plan.HashLookup, row 
 }
 
 func (b *BaseBuilder) buildTableAlias(ctx *sql.Context, n *plan.TableAlias, row sql.Row) (sql.RowIter, error) {
-	var table string
-	if tbl, ok := n.Child.(sql.Nameable); ok {
-		table = tbl.Name()
-	} else {
-		table = reflect.TypeOf(n.Child).String()
-	}
-
-	span, ctx := ctx.Span("sql.TableAlias", trace.WithAttributes(attribute.String("table", table)))
-
 	iter, err := b.Build(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, iter), nil
+	return iter, nil
 }
 
 func (b *BaseBuilder) buildJoinNode(ctx *sql.Context, n *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
@@ -294,15 +276,12 @@ func (b *BaseBuilder) buildJoinNode(ctx *sql.Context, n *plan.JoinNode, row sql.
 }
 
 func (b *BaseBuilder) buildOrderedDistinct(ctx *sql.Context, n *plan.OrderedDistinct, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.OrderedDistinct")
-
 	it, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, newOrderedDistinctIter(it, n.Child.Schema())), nil
+	return newOrderedDistinctIter(it, n.Child.Schema()), nil
 }
 
 func (b *BaseBuilder) buildWith(ctx *sql.Context, n *plan.With, row sql.Row) (sql.RowIter, error) {
@@ -310,31 +289,22 @@ func (b *BaseBuilder) buildWith(ctx *sql.Context, n *plan.With, row sql.Row) (sq
 }
 
 func (b *BaseBuilder) buildProject(ctx *sql.Context, n *plan.Project, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Project", trace.WithAttributes(
-		attribute.Int("projections", len(n.Projections)),
-	))
-
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, &projectIter{
+	return &projectIter{
 		p:         n.Projections,
 		childIter: i,
-	}), nil
+	}, nil
 }
 
 func (b *BaseBuilder) buildVirtualColumnTable(ctx *sql.Context, n *plan.VirtualColumnTable, tableIter sql.RowIter, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.VirtualColumnTable", trace.WithAttributes(
-		attribute.Int("projections", len(n.Projections)),
-	))
-
-	return sql.NewSpanIter(span, &projectIter{
+	return &projectIter{
 		p:         n.Projections,
 		childIter: tableIter,
-	}), nil
+	}, nil
 }
 
 func (b *BaseBuilder) buildProcedure(ctx *sql.Context, n *plan.Procedure, row sql.Row) (sql.RowIter, error) {
@@ -346,9 +316,6 @@ func (b *BaseBuilder) buildRecursiveTable(ctx *sql.Context, n *plan.RecursiveTab
 }
 
 func (b *BaseBuilder) buildSet(ctx *sql.Context, n *plan.Set, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Set")
-	defer span.End()
-
 	var updateExprs []sql.Expression
 	for _, v := range n.Exprs {
 		setField, ok := v.(*expression.SetField)
@@ -397,14 +364,8 @@ func (b *BaseBuilder) buildSet(ctx *sql.Context, n *plan.Set, row sql.Row) (sql.
 }
 
 func (b *BaseBuilder) buildGroupBy(ctx *sql.Context, n *plan.GroupBy, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.GroupBy", trace.WithAttributes(
-		attribute.Int("groupings", len(n.GroupByExprs)),
-		attribute.Int("aggregates", len(n.SelectedExprs)),
-	))
-
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
@@ -415,19 +376,16 @@ func (b *BaseBuilder) buildGroupBy(ctx *sql.Context, n *plan.GroupBy, row sql.Ro
 		iter = newGroupByGroupingIter(ctx, n.SelectedExprs, n.GroupByExprs, i)
 	}
 
-	return sql.NewSpanIter(span, iter), nil
+	return iter, nil
 }
 
 func (b *BaseBuilder) buildFilter(ctx *sql.Context, n *plan.Filter, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Filter")
-
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, plan.NewFilterIter(n.Expression, i)), nil
+	return plan.NewFilterIter(n.Expression, i), nil
 }
 
 func (b *BaseBuilder) buildDeclareVariables(ctx *sql.Context, n *plan.DeclareVariables, row sql.Row) (sql.RowIter, error) {
@@ -467,24 +425,20 @@ func (b *BaseBuilder) buildRecursiveCte(ctx *sql.Context, n *plan.RecursiveCte, 
 }
 
 func (b *BaseBuilder) buildLimit(ctx *sql.Context, n *plan.Limit, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Limit", trace.WithAttributes(attribute.Stringer("limit", n.Limit)))
-
 	limit, err := getInt64Value(ctx, n.Limit)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
 	childIter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
-	return sql.NewSpanIter(span, &limitIter{
+	return &limitIter{
 		calcFoundRows: n.CalcFoundRows,
 		limit:         limit,
 		childIter:     childIter,
-	}), nil
+	}, nil
 }
 
 func (b *BaseBuilder) buildMax1Row(ctx *sql.Context, n *plan.Max1Row, row sql.Row) (sql.RowIter, error) {
@@ -568,7 +522,7 @@ func createIfNotExists(fileStr string) (*os.File, error) {
 	if _, fErr := os.Stat(fileStr); fErr == nil {
 		return nil, sql.ErrFileExists.New(fileStr)
 	}
-	file, fileErr := os.OpenFile(fileStr, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0640)
+	file, fileErr := os.OpenFile(fileStr, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o640)
 	if fileErr != nil {
 		return nil, fileErr
 	}
@@ -576,9 +530,6 @@ func createIfNotExists(fileStr string) (*os.File, error) {
 }
 
 func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Into")
-	defer span.End()
-
 	rowIter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
 		return nil, err
@@ -671,7 +622,7 @@ func (b *BaseBuilder) buildInto(ctx *sql.Context, n *plan.Into, row sql.Row) (sq
 		return nil, sql.ErrColumnNumberDoesNotMatch.New()
 	}
 
-	var rowValues = make([]interface{}, len(rows[0]))
+	rowValues := make([]interface{}, len(rows[0]))
 	copy(rowValues, rows[0])
 
 	for j, v := range n.IntoVars {
@@ -751,31 +702,24 @@ func (b *BaseBuilder) buildExternalProcedure(ctx *sql.Context, n *plan.ExternalP
 }
 
 func (b *BaseBuilder) buildHaving(ctx *sql.Context, n *plan.Having, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Having")
 	iter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, plan.NewFilterIter(n.Cond, iter)), nil
+	return plan.NewFilterIter(n.Cond, iter), nil
 }
 
 func (b *BaseBuilder) buildDistinct(ctx *sql.Context, n *plan.Distinct, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Distinct")
-
 	it, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, newDistinctIter(ctx, it)), nil
+	return newDistinctIter(ctx, it), nil
 }
 
 func (b *BaseBuilder) buildIndexedTableAccess(ctx *sql.Context, n *plan.IndexedTableAccess, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.IndexedTableAccess")
-
 	lookup, err := n.GetLookup(ctx, row)
 	if err != nil {
 		return nil, err
@@ -796,16 +740,14 @@ func (b *BaseBuilder) buildIndexedTableAccess(ctx *sql.Context, n *plan.IndexedT
 		}
 	}
 
-	return sql.NewSpanIter(span, tableIter), nil
+	return tableIter, nil
 }
 
 func (b *BaseBuilder) buildSetOp(ctx *sql.Context, s *plan.SetOp, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.SetOp")
 	var iter sql.RowIter
 	var err error
 	iter, err = b.buildNodeExec(ctx, s.Left(), row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 	switch s.SetOpType {
@@ -820,7 +762,6 @@ func (b *BaseBuilder) buildSetOp(ctx *sql.Context, s *plan.SetOp, row sql.Row) (
 		var iter2 sql.RowIter
 		iter2, err = b.buildNodeExec(ctx, s.Right(), row)
 		if err != nil {
-			span.End()
 			return nil, err
 		}
 		iter = &intersectIter{
@@ -831,7 +772,6 @@ func (b *BaseBuilder) buildSetOp(ctx *sql.Context, s *plan.SetOp, row sql.Row) (
 		var iter2 sql.RowIter
 		iter2, err = b.buildNodeExec(ctx, s.Right(), row)
 		if err != nil {
-			span.End()
 			return nil, err
 		}
 		if s.Distinct {
@@ -878,32 +818,27 @@ func (b *BaseBuilder) buildSetOp(ctx *sql.Context, s *plan.SetOp, row sql.Row) (
 	} else if len(s.SortFields) > 0 {
 		iter = newSortIter(s.SortFields, iter)
 	}
-	return sql.NewSpanIter(span, iter), nil
+	return iter, nil
 }
 
 func (b *BaseBuilder) buildSubqueryAlias(ctx *sql.Context, n *plan.SubqueryAlias, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.SubqueryAlias")
-
 	if !n.OuterScopeVisibility && !n.IsLateral {
 		row = nil
 	}
 	iter, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, iter), nil
+	return iter, nil
 }
 
 func (b *BaseBuilder) buildSort(ctx *sql.Context, n *plan.Sort, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Sort")
 	i, err := b.buildNodeExec(ctx, n.Child, row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
-	return sql.NewSpanIter(span, newSortIter(n.SortFields, i)), nil
+	return newSortIter(n.SortFields, i), nil
 }
 
 func (b *BaseBuilder) buildPrepareQuery(ctx *sql.Context, n *plan.PrepareQuery, row sql.Row) (sql.RowIter, error) {
@@ -911,11 +846,8 @@ func (b *BaseBuilder) buildPrepareQuery(ctx *sql.Context, n *plan.PrepareQuery, 
 }
 
 func (b *BaseBuilder) buildResolvedTable(ctx *sql.Context, n *plan.ResolvedTable, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.TableNode")
-
 	partitions, err := n.Table.Partitions(ctx)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
@@ -929,7 +861,7 @@ func (b *BaseBuilder) buildResolvedTable(ctx *sql.Context, n *plan.ResolvedTable
 		}
 	}
 
-	return sql.NewSpanIter(span, iter), nil
+	return iter, nil
 }
 
 func (b *BaseBuilder) buildTableCount(_ *sql.Context, n *plan.TableCountLookup, _ sql.Row) (sql.RowIter, error) {

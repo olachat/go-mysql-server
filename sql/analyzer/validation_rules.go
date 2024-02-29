@@ -96,9 +96,6 @@ func validateLimitAndOffset(ctx *sql.Context, a *Analyzer, n sql.Node, scope *pl
 }
 
 func validateIsResolved(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validate_is_resolved")
-	defer span.End()
-
 	if !n.Resolved() {
 		return nil, transform.SameTree, unresolvedError(n)
 	}
@@ -129,9 +126,6 @@ func unresolvedError(n sql.Node) error {
 }
 
 func validateOrderBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validate_order_by")
-	defer span.End()
-
 	switch n := n.(type) {
 	case *plan.Sort:
 		for _, field := range n.SortFields {
@@ -149,9 +143,6 @@ func validateOrderBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scop
 // table multiple times, or using a DELETE FROM JOIN without specifying any explicit delete target tables, and returns
 // an error if any validation issues were detected.
 func validateDeleteFrom(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validate_order_by")
-	defer span.End()
-
 	var validationError error
 	transform.InspectUp(n, func(n sql.Node) bool {
 		df, ok := n.(*plan.DeleteFrom)
@@ -250,9 +241,6 @@ func checkSqlMode(ctx *sql.Context, option string) (bool, error) {
 }
 
 func validateGroupBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validate_group_by")
-	defer span.End()
-
 	// only enforce strict group by when this variable is set
 	if isStrict, err := checkSqlMode(ctx, "ONLY_FULL_GROUP_BY"); err != nil {
 		return n, transform.SameTree, err
@@ -336,9 +324,6 @@ func expressionReferencesOnlyGroupBys(groupBys []string, expr sql.Expression) bo
 }
 
 func validateSchemaSource(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validate_schema_source")
-	defer span.End()
-
 	switch n := n.(type) {
 	case *plan.TableAlias:
 		// table aliases should not be validated
@@ -352,9 +337,6 @@ func validateSchemaSource(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan
 }
 
 func validateIndexCreation(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validate_index_creation")
-	defer span.End()
-
 	ci, ok := n.(*plan.CreateIndex)
 	if !ok {
 		return n, transform.SameTree, nil
@@ -393,9 +375,6 @@ func validateSchema(t *plan.ResolvedTable) error {
 }
 
 func validateUnionSchemasMatch(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validate_union_schemas_match")
-	defer span.End()
-
 	var firstmismatch []string
 	transform.Inspect(n, func(n sql.Node) bool {
 		if u, ok := n.(*plan.SetOp); ok {

@@ -18,10 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
-
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
@@ -30,30 +26,11 @@ import (
 )
 
 func newJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
-	var leftName, rightName string
-	if leftTable, ok := j.Left().(sql.Nameable); ok {
-		leftName = leftTable.Name()
-	} else {
-		leftName = reflect.TypeOf(j.Left()).String()
-	}
-
-	if rightTable, ok := j.Right().(sql.Nameable); ok {
-		rightName = rightTable.Name()
-	} else {
-		rightName = reflect.TypeOf(j.Right()).String()
-	}
-
-	span, ctx := ctx.Span("plan.joinIter", trace.WithAttributes(
-		attribute.String("left", leftName),
-		attribute.String("right", rightName),
-	))
-
 	l, err := b.Build(ctx, j.Left(), row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
-	return sql.NewSpanIter(span, &joinIter{
+	return &joinIter{
 		parentRow:         row,
 		primary:           l,
 		secondaryProvider: j.Right(),
@@ -62,7 +39,7 @@ func newJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row 
 		rowSize:           len(row) + len(j.Left().Schema()) + len(j.Right().Schema()),
 		scopeLen:          j.ScopeLen,
 		b:                 b,
-	}), nil
+	}, nil
 }
 
 // joinIter is an iterator that iterates over every row in the primary table and performs an index lookup in
@@ -99,7 +76,6 @@ func (i *joinIter) loadPrimary(ctx *sql.Context) error {
 func (i *joinIter) loadSecondary(ctx *sql.Context) (sql.Row, error) {
 	if i.secondary == nil {
 		rowIter, err := i.b.Build(ctx, i.secondaryProvider, i.primaryRow)
-
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +191,6 @@ func (i *joinIter) Close(ctx *sql.Context) (err error) {
 
 func newExistsIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
 	leftIter, err := b.Build(ctx, j.Left(), row)
-
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +258,6 @@ func (i *existsIter) Next(ctx *sql.Context) (sql.Row, error) {
 			}
 			left = i.parentRow.Append(r)
 			rIter, err = i.b.Build(ctx, i.secondaryProvider, left)
-
 			if err != nil {
 				return nil, err
 			}
@@ -399,7 +373,6 @@ func (i *existsIter) Close(ctx *sql.Context) (err error) {
 
 func newFullJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
 	leftIter, err := b.Build(ctx, j.Left(), row)
-
 	if err != nil {
 		return nil, err
 	}
@@ -566,38 +539,19 @@ func (i *fullJoinIter) Close(ctx *sql.Context) (err error) {
 }
 
 func newCrossJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
-	var left, right string
-	if leftTable, ok := j.Left().(sql.Nameable); ok {
-		left = leftTable.Name()
-	} else {
-		left = reflect.TypeOf(j.Left()).String()
-	}
-
-	if rightTable, ok := j.Right().(sql.Nameable); ok {
-		right = rightTable.Name()
-	} else {
-		right = reflect.TypeOf(j.Right()).String()
-	}
-
-	span, ctx := ctx.Span("plan.CrossJoin", trace.WithAttributes(
-		attribute.String("left", left),
-		attribute.String("right", right),
-	))
-
 	l, err := b.Build(ctx, j.Left(), row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, &crossJoinIterator{
+	return &crossJoinIterator{
 		b:         b,
 		parentRow: row,
 		l:         l,
 		rp:        j.Right(),
 		rowSize:   len(row) + len(j.Left().Schema()) + len(j.Right().Schema()),
 		scopeLen:  j.ScopeLen,
-	}), nil
+	}, nil
 }
 
 type crossJoinIterator struct {
@@ -721,30 +675,12 @@ type lateralJoinIterator struct {
 }
 
 func newLateralJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNode, row sql.Row) (sql.RowIter, error) {
-	var left, right string
-	if leftTable, ok := j.Left().(sql.Nameable); ok {
-		left = leftTable.Name()
-	} else {
-		left = reflect.TypeOf(j.Left()).String()
-	}
-	if rightTable, ok := j.Right().(sql.Nameable); ok {
-		right = rightTable.Name()
-	} else {
-		right = reflect.TypeOf(j.Right()).String()
-	}
-
-	span, ctx := ctx.Span("plan.LateralJoin", trace.WithAttributes(
-		attribute.String("left", left),
-		attribute.String("right", right),
-	))
-
 	l, err := b.Build(ctx, j.Left(), row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 
-	return sql.NewSpanIter(span, &lateralJoinIterator{
+	return &lateralJoinIterator{
 		pRow:     row,
 		lIter:    l,
 		rNode:    j.Right(),
@@ -753,7 +689,7 @@ func newLateralJoinIter(ctx *sql.Context, b sql.NodeExecBuilder, j *plan.JoinNod
 		rowSize:  len(row) + len(j.Left().Schema()) + len(j.Right().Schema()),
 		scopeLen: j.ScopeLen,
 		b:        b,
-	}), nil
+	}, nil
 }
 
 func (i *lateralJoinIterator) loadLeft(ctx *sql.Context) error {

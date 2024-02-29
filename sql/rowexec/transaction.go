@@ -123,9 +123,6 @@ func (b *BaseBuilder) buildStartReplica(ctx *sql.Context, n *plan.StartReplica, 
 }
 
 func (b *BaseBuilder) buildUnlockTables(ctx *sql.Context, n *plan.UnlockTables, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.UnlockTables")
-	defer span.End()
-
 	if err := n.Catalog.UnlockTables(ctx, ctx.ID()); err != nil {
 		return nil, err
 	}
@@ -158,7 +155,6 @@ func (b *BaseBuilder) buildCommit(ctx *sql.Context, n *plan.Commit, row sql.Row)
 
 func (b *BaseBuilder) buildNoopTriggerRollback(ctx *sql.Context, n *plan.NoopTriggerRollback, row sql.Row) (sql.RowIter, error) {
 	return b.buildNodeExec(ctx, n.Child, row)
-
 }
 
 func (b *BaseBuilder) buildKill(ctx *sql.Context, n *plan.Kill, row sql.Row) (sql.RowIter, error) {
@@ -216,9 +212,6 @@ func (b *BaseBuilder) buildChangeReplicationSource(ctx *sql.Context, n *plan.Cha
 }
 
 func (b *BaseBuilder) buildLockTables(ctx *sql.Context, n *plan.LockTables, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.LockTables")
-	defer span.End()
-
 	for _, l := range n.Locks {
 		lockable, err := getLockable(l.Table)
 		if err != nil {
@@ -238,18 +231,18 @@ func (b *BaseBuilder) buildLockTables(ctx *sql.Context, n *plan.LockTables, row 
 }
 
 func (b *BaseBuilder) buildSignal(ctx *sql.Context, n *plan.Signal, row sql.Row) (sql.RowIter, error) {
-	//TODO: implement CLASS_ORIGIN
-	//TODO: implement SUBCLASS_ORIGIN
-	//TODO: implement CONSTRAINT_CATALOG
-	//TODO: implement CONSTRAINT_SCHEMA
-	//TODO: implement CONSTRAINT_NAME
-	//TODO: implement CATALOG_NAME
-	//TODO: implement SCHEMA_NAME
-	//TODO: implement TABLE_NAME
-	//TODO: implement COLUMN_NAME
-	//TODO: implement CURSOR_NAME
+	// TODO: implement CLASS_ORIGIN
+	// TODO: implement SUBCLASS_ORIGIN
+	// TODO: implement CONSTRAINT_CATALOG
+	// TODO: implement CONSTRAINT_SCHEMA
+	// TODO: implement CONSTRAINT_NAME
+	// TODO: implement CATALOG_NAME
+	// TODO: implement SCHEMA_NAME
+	// TODO: implement TABLE_NAME
+	// TODO: implement COLUMN_NAME
+	// TODO: implement CURSOR_NAME
 	if n.SqlStateValue[0:2] == "01" {
-		//TODO: implement warnings
+		// TODO: implement warnings
 		return nil, fmt.Errorf("warnings not yet implemented")
 	} else {
 

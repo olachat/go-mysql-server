@@ -30,9 +30,6 @@ import (
 // optimizeJoins finds an optimal table ordering and access plan
 // for the tables in the query.
 func optimizeJoins(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("construct_join_plan")
-	defer span.End()
-
 	if !n.Resolved() {
 		return n, transform.SameTree, nil
 	}
@@ -100,7 +97,6 @@ func inOrderReplanJoin(ctx *sql.Context, a *Analyzer, scope *plan.Scope, sch sql
 		ret = plan.NewProject(recSchemaToGetFields(n, n.Schema()), ret)
 	}
 	return ret, transform.NewTree, nil
-
 }
 
 // recSchemaToGetFields creates a set of projection get fields for a node
@@ -237,7 +233,7 @@ func addLookupJoins(m *memo.Memo) error {
 		case *memo.LeftJoin:
 			right = e.Right
 			join = e.JoinBase
-		//TODO fullouterjoin
+		// TODO fullouterjoin
 		case *memo.SemiJoin:
 			right = e.Right
 			join = e.JoinBase
@@ -809,7 +805,8 @@ func getRangeFilters(filters []sql.Expression) (ranges []rangeFilter) {
 				min:                min,
 				max:                max.group,
 				closedOnLowerBound: closedOnLowerBound,
-				closedOnUpperBound: max.isClosed})
+				closedOnUpperBound: max.isClosed,
+			})
 		}
 	}
 
@@ -820,7 +817,8 @@ func getRangeFilters(filters []sql.Expression) (ranges []rangeFilter) {
 				min:                min.group,
 				max:                max,
 				closedOnLowerBound: min.isClosed,
-				closedOnUpperBound: closedOnUpperBound})
+				closedOnUpperBound: closedOnUpperBound,
+			})
 		}
 	}
 
@@ -982,7 +980,7 @@ func addMergeJoins(m *memo.Memo) error {
 			join = e.JoinBase
 		case *memo.LeftJoin:
 			join = e.JoinBase
-			//TODO semijoin, antijoin, fullouterjoin
+			// TODO semijoin, antijoin, fullouterjoin
 		default:
 			return nil
 		}
@@ -1021,7 +1019,6 @@ func addMergeJoins(m *memo.Memo) error {
 				var swap bool
 				if expressionReferencesTable(l, leftTabId) &&
 					expressionReferencesTable(r, rightTabId) {
-
 				} else if expressionReferencesTable(r, leftTabId) &&
 					expressionReferencesTable(l, rightTabId) {
 					swap = true
@@ -1062,7 +1059,6 @@ func addMergeJoins(m *memo.Memo) error {
 							compare = combineIntoTuple(m, matchedEqFilters)
 						} else {
 							compare = matchedEqFilters[0].filter
-
 						}
 						newFilters := []sql.Expression{compare}
 						for filterPos, filter := range join.Filter {

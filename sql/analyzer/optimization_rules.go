@@ -33,9 +33,6 @@ import (
 // todo: analyzer should separate target schema from plan schema
 // todo: projection columns should all have ids so that pruning is more reliable
 func eraseProjection(ctx *sql.Context, a *Analyzer, node sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("erase_projection")
-	defer span.End()
-
 	if !node.Resolved() {
 		return node, transform.SameTree, nil
 	}
@@ -47,7 +44,6 @@ func eraseProjection(ctx *sql.Context, a *Analyzer, node sql.Node, scope *plan.S
 				a.Log("project erased")
 				return project.Child, transform.NewTree, nil
 			}
-
 		}
 
 		return node, transform.SameTree, nil
@@ -483,7 +479,7 @@ func pushNotFiltersHelper(e sql.Expression) (sql.Expression, error) {
 		}
 	}
 
-	//NOT(BETWEEN(left,right))=>OR(LT(left), GT(right))
+	// NOT(BETWEEN(left,right))=>OR(LT(left), GT(right))
 	if not, _ := e.(*expression.Not); not != nil {
 		if f, _ := not.Child.(*expression.Between); f != nil {
 			return pushNotFiltersHelper(expression.NewOr(

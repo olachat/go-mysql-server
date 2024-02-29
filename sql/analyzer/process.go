@@ -46,7 +46,7 @@ func trackProcess(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, 
 
 	processList := ctx.ProcessList
 
-	var seen = make(map[string]struct{})
+	seen := make(map[string]struct{})
 	n, _, err := transform.Node(n, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 		switch n := n.(type) {
 		case *plan.ResolvedTable:
@@ -139,8 +139,5 @@ func trackProcess(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, 
 
 	return plan.NewQueryProcess(node, func() {
 		processList.EndQuery(ctx)
-		if span := ctx.RootSpan(); span != nil {
-			span.End()
-		}
 	}), transform.NewTree, nil
 }

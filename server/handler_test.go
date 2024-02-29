@@ -51,7 +51,6 @@ func TestHandlerOutput(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -159,7 +158,6 @@ func TestHandlerOutput(t *testing.T) {
 			assert.Equal(t, test.expected.callsToCallback, callsToCallback)
 			assert.Equal(t, test.expected.lenLastBatch, lenLastBatch)
 			assert.Equal(t, test.expected.lastRowsAffected, lastRowsAffected)
-
 		})
 	}
 
@@ -221,7 +219,6 @@ func TestHandlerErrors(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -294,7 +291,6 @@ func TestHandlerComResetConnection(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -354,7 +350,6 @@ func TestHandlerComPrepare(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -426,7 +421,6 @@ func TestHandlerComPrepareExecute(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -501,7 +495,6 @@ func TestHandlerComPrepareExecuteWithPreparedDisabled(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -610,7 +603,6 @@ func TestServerEventListener(t *testing.T) {
 			func(ctx context.Context, conn *mysql.Conn, addr string) (sql.Session, error) {
 				return sql.NewBaseSessionWithClientServer(addr, sql.Client{Capabilities: conn.Capabilities}, conn.ConnectionID), nil
 			},
-			sql.NoopTracer,
 			dbFunc,
 			e.MemoryManager,
 			e.ProcessList,
@@ -691,7 +683,6 @@ func TestHandlerKill(t *testing.T) {
 			func(ctx context.Context, conn *mysql.Conn, addr string) (sql.Session, error) {
 				return sql.NewBaseSessionWithClientServer(addr, sql.Client{Capabilities: conn.Capabilities}, conn.ConnectionID), nil
 			},
-			sql.NoopTracer,
 			dbFunc,
 			e.MemoryManager,
 			e.ProcessList,
@@ -858,7 +849,6 @@ func TestSchemaToFields(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -939,7 +929,6 @@ func TestHandlerTimeout(t *testing.T) {
 	timeOutHandler := &Handler{
 		e: e,
 		sm: NewSessionManager(testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -950,7 +939,6 @@ func TestHandlerTimeout(t *testing.T) {
 	noTimeOutHandler := &Handler{
 		e: e2,
 		sm: NewSessionManager(testSessionBuilder(pro2),
-			sql.NoopTracer,
 			dbFunc2,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -1004,7 +992,6 @@ func TestOkClosedConnection(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -1036,7 +1023,6 @@ func TestHandlerFoundRowsCapabilities(t *testing.T) {
 		e: e,
 		sm: NewSessionManager(
 			testSessionBuilder(pro),
-			sql.NoopTracer,
 			dbFunc,
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
@@ -1156,6 +1142,7 @@ func testServer(t *testing.T, ready chan struct{}, port string, breakConn bool) 
 		}
 	} // else: dirty return without closing or reading to force the socket into TIME_WAIT
 }
+
 func okTestServer(t *testing.T, ready chan struct{}, port string) {
 	testServer(t, ready, port, false)
 }

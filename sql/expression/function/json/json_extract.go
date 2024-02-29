@@ -31,8 +31,10 @@ type JSONExtract struct {
 	Paths []sql.Expression
 }
 
-var _ sql.FunctionExpression = (*JSONExtract)(nil)
-var _ sql.CollationCoercible = (*JSONExtract)(nil)
+var (
+	_ sql.FunctionExpression = (*JSONExtract)(nil)
+	_ sql.CollationCoercible = (*JSONExtract)(nil)
+)
 
 // NewJSONExtract creates a new JSONExtract UDF.
 func NewJSONExtract(args ...sql.Expression) (sql.Expression, error) {
@@ -73,9 +75,6 @@ func (*JSONExtract) CollationCoercibility(ctx *sql.Context) (collation sql.Colla
 
 // Eval implements the sql.Expression interface.
 func (j *JSONExtract) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span("function.JSONExtract")
-	defer span.End()
-
 	js, err := j.JSON.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -95,7 +94,7 @@ func (j *JSONExtract) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return fmt.Errorf("expected types.JSONValue, found: %T", js), nil
 	}
 
-	var results = make([]sql.JSONWrapper, len(j.Paths))
+	results := make([]sql.JSONWrapper, len(j.Paths))
 	for i, p := range j.Paths {
 		path, err := p.Eval(ctx, row)
 		if err != nil {
@@ -142,7 +141,7 @@ func (j *JSONExtract) WithChildren(children ...sql.Expression) (sql.Expression, 
 
 func (j *JSONExtract) String() string {
 	children := j.Children()
-	var parts = make([]string, len(children))
+	parts := make([]string, len(children))
 	for i, c := range children {
 		parts[i] = c.String()
 	}

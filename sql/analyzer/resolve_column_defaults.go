@@ -49,9 +49,6 @@ import (
 // here, as well as in the `resolve_functions` rule.
 
 func validateColumnDefaults(ctx *sql.Context, _ *Analyzer, n sql.Node, _ *plan.Scope, _ RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("validateColumnDefaults")
-	defer span.End()
-
 	return transform.Node(n, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 		switch node := n.(type) {
 		case *plan.AlterDefaultSet:
@@ -117,9 +114,6 @@ func validateColumnDefaults(ctx *sql.Context, _ *Analyzer, n sql.Node, _ *plan.S
 // important that we remove the table name before passing it off for storage. Otherwise we end up with serialized
 // defaults like `tableName.field + 1` instead of just `field + 1`.
 func stripTableNamesFromColumnDefaults(ctx *sql.Context, _ *Analyzer, n sql.Node, _ *plan.Scope, _ RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("stripTableNamesFromColumnDefaults")
-	defer span.End()
-
 	return transform.Node(n, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 		switch node := n.(type) {
 		case *plan.AlterDefaultSet:
@@ -165,7 +159,6 @@ func stripTableNamesFromColumnDefaults(ctx *sql.Context, _ *Analyzer, n sql.Node
 
 				return stripTableNamesFromDefault(eWrapper)
 			})
-
 			if err != nil {
 				return nil, transform.SameTree, err
 			}
@@ -318,9 +311,6 @@ func stripTableNamesFromDefault(e *expression.Wrapper) (sql.Expression, transfor
 }
 
 func backtickDefaultColumnValueNames(ctx *sql.Context, _ *Analyzer, n sql.Node, _ *plan.Scope, _ RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("backtickDefaultColumnValueNames")
-	defer span.End()
-
 	return transform.Node(n, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 		switch node := n.(type) {
 		case *plan.AlterDefaultSet:
@@ -366,7 +356,6 @@ func backtickDefaultColumnValueNames(ctx *sql.Context, _ *Analyzer, n sql.Node, 
 
 				return backtickDefault(eWrapper)
 			})
-
 			if err != nil {
 				return nil, transform.SameTree, err
 			}

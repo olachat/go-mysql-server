@@ -38,10 +38,8 @@ func (b *BaseBuilder) buildStripRowNode(ctx *sql.Context, n *plan.StripRowNode, 
 }
 
 func (b *BaseBuilder) buildConcat(ctx *sql.Context, n *plan.Concat, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.Concat")
 	li, err := b.buildNodeExec(ctx, n.Left(), row)
 	if err != nil {
-		span.End()
 		return nil, err
 	}
 	i := newConcatIter(
@@ -51,7 +49,7 @@ func (b *BaseBuilder) buildConcat(ctx *sql.Context, n *plan.Concat, row sql.Row)
 			return b.buildNodeExec(ctx, n.Right(), row)
 		},
 	)
-	return sql.NewSpanIter(span, i), nil
+	return i, nil
 }
 
 func (b *BaseBuilder) buildReleaser(ctx *sql.Context, n *plan.Releaser, row sql.Row) (sql.RowIter, error) {

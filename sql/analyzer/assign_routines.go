@@ -31,9 +31,6 @@ type RoutineTable interface {
 
 // assignRoutines sets the catalog in the required nodes.
 func assignRoutines(ctx *sql.Context, a *Analyzer, n sql.Node, scope *plan.Scope, sel RuleSelector) (sql.Node, transform.TreeIdentity, error) {
-	span, ctx := ctx.Span("assign_routines")
-	defer span.End()
-
 	return transform.Node(n, func(n sql.Node) (sql.Node, transform.TreeIdentity, error) {
 		if !n.Resolved() {
 			return n, transform.SameTree, nil

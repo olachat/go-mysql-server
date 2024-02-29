@@ -103,9 +103,6 @@ func depth(obj interface{}) (int, error) {
 
 // Eval implements sql.Expression interface.
 func (j JSONDepth) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span(fmt.Sprintf("function.%s", j.FunctionName()))
-	defer span.End()
-
 	doc, err := getJSONDocumentFromRow(ctx, row, j.JSON)
 	if err != nil {
 		return nil, err

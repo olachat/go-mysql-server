@@ -33,8 +33,10 @@ type LockTables struct {
 	Locks   []*TableLock
 }
 
-var _ sql.Node = (*LockTables)(nil)
-var _ sql.CollationCoercible = (*LockTables)(nil)
+var (
+	_ sql.Node               = (*LockTables)(nil)
+	_ sql.CollationCoercible = (*LockTables)(nil)
+)
 
 // NewLockTables creates a new LockTables node.
 func NewLockTables(locks []*TableLock) *LockTables {
@@ -43,7 +45,7 @@ func NewLockTables(locks []*TableLock) *LockTables {
 
 // Children implements the sql.Node interface.
 func (t *LockTables) Children() []sql.Node {
-	var children = make([]sql.Node, len(t.Locks))
+	children := make([]sql.Node, len(t.Locks))
 	for i, l := range t.Locks {
 		children[i] = l.Table
 	}
@@ -69,7 +71,7 @@ func (t *LockTables) Resolved() bool {
 func (t *LockTables) Schema() sql.Schema { return nil }
 
 func (t *LockTables) String() string {
-	var children = make([]string, len(t.Locks))
+	children := make([]string, len(t.Locks))
 	for i, l := range t.Locks {
 		if l.Write {
 			children[i] = fmt.Sprintf("[WRITE] %s", l.Table.String())
@@ -90,7 +92,7 @@ func (t *LockTables) WithChildren(children ...sql.Node) (sql.Node, error) {
 		return nil, sql.ErrInvalidChildrenNumber.New(t, len(children), len(t.Locks))
 	}
 
-	var locks = make([]*TableLock, len(t.Locks))
+	locks := make([]*TableLock, len(t.Locks))
 	for i, n := range children {
 		locks[i] = &TableLock{
 			Table: n,
@@ -124,8 +126,10 @@ type UnlockTables struct {
 	Catalog sql.Catalog
 }
 
-var _ sql.Node = (*UnlockTables)(nil)
-var _ sql.CollationCoercible = (*UnlockTables)(nil)
+var (
+	_ sql.Node               = (*UnlockTables)(nil)
+	_ sql.CollationCoercible = (*UnlockTables)(nil)
+)
 
 // NewUnlockTables returns a new UnlockTables node.
 func NewUnlockTables() *UnlockTables {
@@ -146,9 +150,6 @@ func (t *UnlockTables) Schema() sql.Schema { return nil }
 
 // RowIter implements the sql.Node interface.
 func (t *UnlockTables) RowIter(ctx *sql.Context, row sql.Row) (sql.RowIter, error) {
-	span, ctx := ctx.Span("plan.UnlockTables")
-	defer span.End()
-
 	if err := t.Catalog.UnlockTables(ctx, ctx.ID()); err != nil {
 		return nil, err
 	}
@@ -173,7 +174,7 @@ func (t *UnlockTables) WithChildren(children ...sql.Node) (sql.Node, error) {
 
 // CheckPrivileges implements the interface sql.Node.
 func (t *UnlockTables) CheckPrivileges(ctx *sql.Context, opChecker sql.PrivilegedOperationChecker) bool {
-	//TODO: Can't quite figure out the privileges for this one, needs more testing
+	// TODO: Can't quite figure out the privileges for this one, needs more testing
 	return true
 }
 

@@ -20,8 +20,6 @@ import (
 	"unicode"
 
 	ast "github.com/dolthub/vitess/go/vt/sqlparser"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/src-d/go-errors.v1"
 
 	"github.com/dolthub/go-mysql-server/sql"
@@ -66,9 +64,6 @@ func ParseOne(ctx *sql.Context, cat sql.Catalog, query string) (sql.Node, string
 }
 
 func parse(ctx *sql.Context, cat sql.Catalog, query string, multi bool, options ast.ParserOptions) (sql.Node, string, string, error) {
-	span, ctx := ctx.Span("parse", trace.WithAttributes(attribute.String("query", query)))
-	defer span.End()
-
 	s := RemoveSpaceAndDelimiter(query, ';')
 
 	var stmt ast.Statement
@@ -121,8 +116,6 @@ func (b *Builder) Parse(query string, multi bool) (ret sql.Node, parsed, remaind
 			}
 		}
 	}()
-	span, ctx := b.ctx.Span("parse", trace.WithAttributes(attribute.String("query", query)))
-	defer span.End()
 
 	s := RemoveSpaceAndDelimiter(query, ';')
 
@@ -143,7 +136,6 @@ func (b *Builder) Parse(query string, multi bool) (ret sql.Node, parsed, remaind
 
 	if err != nil {
 		if goerrors.Is(err, ast.ErrEmpty) {
-			ctx.Warn(0, "query was empty after trimming comments, so it will be ignored")
 			return plan.NothingImpl, parsed, remainder, nil
 		}
 		return nil, parsed, remainder, sql.ErrSyntaxError.New(err.Error())

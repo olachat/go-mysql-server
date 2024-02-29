@@ -15,13 +15,8 @@
 package test
 
 import (
-	"context"
 	"sync"
-
-	"go.opentelemetry.io/otel/trace"
 )
-
-var _, noopSpan = trace.NewNoopTracerProvider().Tracer("").Start(context.Background(), "")
 
 // MemTracer implements a simple tracer in memory for testing.
 type MemTracer struct {
@@ -31,11 +26,4 @@ type MemTracer struct {
 
 type memSpan struct {
 	opName string
-}
-
-func (t *MemTracer) Start(ctx context.Context, operationName string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	t.Lock()
-	t.Spans = append(t.Spans, operationName)
-	t.Unlock()
-	return ctx, noopSpan
 }

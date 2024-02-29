@@ -29,7 +29,6 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/src-d/go-errors.v1"
 
 	sqle "github.com/dolthub/go-mysql-server"
@@ -101,14 +100,6 @@ func TestNoDatabaseSelected(t *testing.T) {
 	enginetest.TestNoDatabaseSelected(t, enginetest.NewDefaultMemoryHarness())
 }
 
-func TestTracing(t *testing.T) {
-	harness := enginetest.NewDefaultMemoryHarness()
-	if harness.IsUsingServer() {
-		t.Skip("this test depends on Context, which ServerEngine does not depend on or update the current context")
-	}
-	enginetest.TestTracing(t, harness)
-}
-
 func TestCurrentTimestamp(t *testing.T) {
 	enginetest.TestCurrentTimestamp(t, enginetest.NewDefaultMemoryHarness())
 }
@@ -156,21 +147,6 @@ func TestLocks(t *testing.T) {
 	require.Equal(1, t2.unlocks)
 }
 
-type mockSpan struct {
-	trace.Span
-	finished bool
-}
-
-func (m *mockSpan) End(options ...trace.SpanEndOption) {
-	m.finished = true
-	m.Span.End(options...)
-}
-
-func newMockSpan(ctx context.Context) (context.Context, *mockSpan) {
-	ctx, span := trace.NewNoopTracerProvider().Tracer("").Start(ctx, "")
-	return ctx, &mockSpan{span, false}
-}
-
 func TestRootSpanFinish(t *testing.T) {
 	harness := enginetest.NewDefaultMemoryHarness()
 	if harness.IsUsingServer() {
@@ -181,17 +157,13 @@ func TestRootSpanFinish(t *testing.T) {
 		panic(err)
 	}
 	sqlCtx := harness.NewContext()
-	ctx, fakeSpan := newMockSpan(sqlCtx)
-	sql.WithRootSpan(fakeSpan)(sqlCtx)
-	sqlCtx = sqlCtx.WithContext(ctx)
+	sqlCtx = sqlCtx.WithContext(context.Background())
 
 	_, iter, err := e.Query(sqlCtx, "SELECT 1")
 	require.NoError(t, err)
 
 	_, err = sql.RowIterToRows(sqlCtx, iter)
 	require.NoError(t, err)
-
-	require.True(t, fakeSpan.finished)
 }
 
 type lockableTable struct {
@@ -279,14 +251,16 @@ func TestShowProcessList(t *testing.T) {
 	require.NoError(err)
 
 	expected := []sql.Row{
-		{int64(1), username, addr1, nil, "Query", int64(0),
+		{
+			int64(1), username, addr1, nil, "Query", int64(0),
 			`
 a (4/5 partitions)
  ├─ a-1 (7/? rows)
  └─ a-2 (9/? rows)
 
 b (2/6 partitions)
-`, "SELECT foo"},
+`, "SELECT foo",
+		},
 		{int64(2), username, addr2, nil, "Query", int64(0), "\nfoo (1/2 partitions)\n", "SELECT bar"},
 	}
 
@@ -324,12 +298,14 @@ func TestTrackProcess(t *testing.T) {
 	require.Equal("SELECT foo", processes[0].Query)
 	require.Equal(
 		map[string]sql.TableProgress{
-			"foo": sql.TableProgress{
+			"foo": {
 				Progress:           sql.Progress{Name: "foo", Done: 0, Total: 2},
-				PartitionsProgress: map[string]sql.PartitionProgress{}},
-			"bar": sql.TableProgress{
+				PartitionsProgress: map[string]sql.PartitionProgress{},
+			},
+			"bar": {
 				Progress:           sql.Progress{Name: "bar", Done: 0, Total: 4},
-				PartitionsProgress: map[string]sql.PartitionProgress{}},
+				PartitionsProgress: map[string]sql.PartitionProgress{},
+			},
 		},
 		processes[0].Progress)
 
@@ -818,9 +794,11 @@ func TestRegex(t *testing.T) {
 	runtime.GC()
 }
 
-var _ sql.TableFunction = (*SimpleTableFunction)(nil)
-var _ sql.CollationCoercible = (*SimpleTableFunction)(nil)
-var _ sql.ExecSourceRel = (*SimpleTableFunction)(nil)
+var (
+	_ sql.TableFunction      = (*SimpleTableFunction)(nil)
+	_ sql.CollationCoercible = (*SimpleTableFunction)(nil)
+	_ sql.ExecSourceRel      = (*SimpleTableFunction)(nil)
+)
 
 // SimpleTableFunction an extremely simple implementation of TableFunction for testing.
 // When evaluated, returns a single row: {"foo", 123}
@@ -874,11 +852,11 @@ func (s SimpleTableFunction) String() string {
 
 func (s SimpleTableFunction) Schema() sql.Schema {
 	schema := []*sql.Column{
-		&sql.Column{
+		{
 			Name: "one",
 			Type: types.TinyText,
 		},
-		&sql.Column{
+		{
 			Name: "two",
 			Type: types.Int64,
 		},
@@ -968,7 +946,7 @@ func TestTimestampBindingsCanBeCompared(t *testing.T) {
 	require.NoError(t, err)
 
 	// We'll insert both of these timestamps and then try and filter them.
-	t0 := time.Date(2022, 01, 01, 0, 0, 0, 0, time.UTC)
+	t0 := time.Date(2022, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
 	t1 := t0.Add(1 * time.Minute)
 
 	_, err = db.Exec("INSERT INTO mytable (t) VALUES (?)", t0)

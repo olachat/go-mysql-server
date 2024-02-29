@@ -39,8 +39,10 @@ type JsonValue struct {
 	Typ  sql.Type
 }
 
-var _ sql.FunctionExpression = (*JsonValue)(nil)
-var _ sql.CollationCoercible = (*JsonValue)(nil)
+var (
+	_ sql.FunctionExpression = (*JsonValue)(nil)
+	_ sql.CollationCoercible = (*JsonValue)(nil)
+)
 
 var jsonValueDefaultType = types.MustCreateString(sqltypes.VarChar, 512, sql.Collation_Default)
 
@@ -83,9 +85,6 @@ func (*JsonValue) CollationCoercibility(ctx *sql.Context) (collation sql.Collati
 
 // Eval implements the sql.Expression interface.
 func (j *JsonValue) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	span, ctx := ctx.Span("function.JsonValue")
-	defer span.End()
-
 	js, err := j.JSON.Eval(ctx, row)
 	if err != nil {
 		return nil, err
@@ -163,7 +162,7 @@ func (j *JsonValue) WithChildren(children ...sql.Expression) (sql.Expression, er
 
 func (j *JsonValue) String() string {
 	children := j.Children()
-	var parts = make([]string, len(children))
+	parts := make([]string, len(children))
 	for i, c := range children {
 		parts[i] = c.String()
 	}

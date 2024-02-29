@@ -129,9 +129,6 @@ func getOuterScopeIndexes(
 	scope *plan.Scope,
 	tableAliases TableAliases,
 ) ([]subqueryIndexLookup, error) {
-	indexSpan, ctx := ctx.Span("getOuterScopeIndexes")
-	defer indexSpan.End()
-
 	var indexes map[string]sql.Index
 	var exprsByTable joinExpressionsByTable
 
@@ -321,8 +318,10 @@ type joinColExpr struct {
 	matchnull bool
 }
 
-type joinColExprs []*joinColExpr
-type joinExpressionsByTable map[string]joinColExprs
+type (
+	joinColExprs           []*joinColExpr
+	joinExpressionsByTable map[string]joinColExprs
+)
 
 // extractComparands returns the comparand Expressions in the slice of joinColExpr given.
 func extractComparands(colExprs []*joinColExpr) []sql.Expression {
@@ -335,7 +334,7 @@ func extractComparands(colExprs []*joinColExpr) []sql.Expression {
 
 // joinExprsByTable returns a map of the expressions given keyed by their table name.
 func joinExprsByTable(exprs []sql.Expression) joinExpressionsByTable {
-	var result = make(joinExpressionsByTable)
+	result := make(joinExpressionsByTable)
 
 	for _, expr := range exprs {
 		leftExpr, rightExpr := extractJoinColumnExpr(expr)

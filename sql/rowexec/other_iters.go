@@ -20,7 +20,6 @@ import (
 	"io"
 	"sync"
 
-	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dolthub/go-mysql-server/sql"
@@ -325,14 +324,11 @@ func iterPartitionRows(ctx *sql.Context, getRowIter rowIterPartitionFunc, partit
 			if !ok {
 				return nil
 			}
-			span, ctx := ctx.Span("exchange.IterPartition")
 			iter, err := getRowIter(ctx, p)
 			if err != nil {
 				return err
 			}
-			count, err := sendAllRows(ctx, iter, rows)
-			span.SetAttributes(attribute.Int("num_rows", count))
-			span.End()
+			_, err = sendAllRows(ctx, iter, rows)
 			if err != nil {
 				return err
 			}
@@ -483,8 +479,10 @@ func newConcatIter(ctx *sql.Context, cur sql.RowIter, nextIter func() (sql.RowIt
 	}
 }
 
-var _ sql.Disposable = (*concatIter)(nil)
-var _ sql.RowIter = (*concatIter)(nil)
+var (
+	_ sql.Disposable = (*concatIter)(nil)
+	_ sql.RowIter    = (*concatIter)(nil)
+)
 
 func (ci *concatIter) Next(ctx *sql.Context) (sql.Row, error) {
 	for {
